@@ -1,7 +1,13 @@
 #include <QtCore>
 
+#pragma once
+
+#ifndef USEIMMINTRIN
+#define USEIMMINTRIN (1)
+#endif
+
 #ifdef __x86_64__
-#if defined(__GNUC__) || defined(__clang__)
+#if (defined(__GNUC__) || defined(__clang__)) && USEIMMINTRIN
 #define HAS_ADCINTRIN 1
 #include <immintrin.h>  // GCC and Clang support
 #endif
@@ -571,6 +577,28 @@ public:
         }
 
         return x1;
+    }
+
+    /* Friends */
+
+    friend QBigNum operator-(int64_t lhs, const QBigNum& rhs)
+    {
+        return QBigNum(lhs) - rhs;
+    }
+
+    friend QBigNum operator+(int64_t lhs, const QBigNum& rhs)
+    {
+        return QBigNum(lhs) + rhs;
+    }
+
+    friend QBigNum operator*(int64_t lhs, const QBigNum& rhs)
+    {
+        return QBigNum(lhs) * rhs;
+    }
+
+    friend QBigNum operator%(int64_t lhs, const QBigNum& rhs)
+    {
+        return QBigNum(lhs) % rhs;
     }
 
     /* Hany operations */

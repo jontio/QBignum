@@ -61,3 +61,6 @@ qmake-generated-makefiles/
 *.user
 .qmake.stash
 
+[Mm]akefile*
+build/
+
