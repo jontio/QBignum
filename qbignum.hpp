@@ -19,7 +19,7 @@ template <size_t Bits>
 class QBigNum
 {
 private:
-    QList<uint64_t> data;   
+    QList<uint64_t> data;
 protected:
 public:
     static constexpr int NUM_BITS = Bits;
@@ -492,6 +492,12 @@ public:
         return result;
     }
 
+    static QBigNum powMod(int64_t base, int64_t exp, const int64_t mod)
+    {
+        QBigNum result = QBigNum(base).powMod(QBigNum(exp), QBigNum(mod));
+        return result;
+    }
+
     QBigNum powMod(const QBigNum& exp, const QBigNum& mod) const
     {
         if (mod == 0)
@@ -577,6 +583,106 @@ public:
         }
 
         return x1;
+    }
+
+    static QBigNum gcd(QBigNum a, QBigNum b)
+    {
+        if (a == 0)
+        {
+            return b;
+        }
+        if (b == 0)
+        {
+            return a;
+        }
+
+        a = a.abs();
+        b = b.abs();
+
+        uint shift = 0;
+
+        // Remove common factors of 2
+        while (((a.data[0] | b.data[0]) & 1) == 0) // Both are even
+        {
+            a >>= 1;
+            b >>= 1;
+            shift++;
+        }
+
+        while ((a.data[0] & 1) == 0) // Remove factors of 2 from a
+        {
+            a >>= 1;
+        }
+
+        while (b != 0)
+        {
+            while ((b.data[0] & 1) == 0) // Remove factors of 2 from b
+            {
+                b >>= 1;
+            }
+
+            if (a > b)
+            {
+                QBigNum temp = a;
+                a = b;
+                b = temp;
+            }
+
+            b = b - a; // Reduce b
+        }
+
+        // Restore common factors of 2
+        return a << shift;
+    }
+
+    static QBigNum gcd(const QString& a, const QString& b)
+    {
+        return gcd(QBigNum(a), QBigNum(b));
+    }
+
+    static QBigNum gcd(int64_t a, int64_t b)
+    {
+        return gcd(QBigNum(a), QBigNum(b));
+    }
+
+    static QBigNum gcd_slow(QBigNum a, QBigNum b)
+    {
+        if (a == 0)
+        {
+            return b;
+        }
+        if (b == 0)
+        {
+            return a;
+        }
+        a = a.abs();
+        b = b.abs();
+        while (b != 0 && a != 0)
+        {
+            if (b < a)
+            {
+                a %= b;
+            }
+            else
+            {
+                b %= a;
+            }
+        }
+        if (a == 0)
+        {
+            return b;
+        }
+        return a;
+    }
+
+    static QBigNum gcd_slow(const QString& a, const QString& b)
+    {
+        return gcd_slow(QBigNum(a), QBigNum(b));
+    }
+
+    static QBigNum gcd_slow(int64_t a, int64_t b)
+    {
+        return gcd_slow(QBigNum(a), QBigNum(b));
     }
 
     /* Friends */

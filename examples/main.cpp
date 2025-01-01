@@ -75,6 +75,8 @@ int main()
     /* LShift */
     PRINT << "LShift:" << "456 >> 1 ==" << (QBigNum512(456) >> 1);
 
+    PRINT << "gcd:" << "gcd(1465041960, 423234344) ==" << QBigNum512::gcd(1465041960, 423234344);
+
     /* etc. */
 
     PRINT << "\n";

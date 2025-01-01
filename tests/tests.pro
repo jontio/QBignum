@@ -1,3 +1,8 @@
+# Check if Qt Creator has opened the project
+exists(./*.pro.user) {
+    DEFINES += BUILD_IN_QT_CREATOR
+}
+
 # Specify output directories
 DESTDIR = $$OUT_PWD/build
 OBJECTS_DIR = $$OUT_PWD/build/obj
@@ -28,5 +33,7 @@ QMAKE_CXXFLAGS_RELEASE -= -O2
 QMAKE_CXXFLAGS_RELEASE += -O3 -funroll-loops -ftree-vectorize -finline-functions
 QMAKE_LFLAGS_RELEASE += -Wl,--gc-sections
 
-# Run the test program after build completion and print success message
-QMAKE_POST_LINK += $$OUT_PWD/build/tst_qbignum512 && echo "Build and test completed successfully."
+!contains(DEFINES, BUILD_IN_QT_CREATOR): {
+    # Run the test program after build completion and print success message
+    QMAKE_POST_LINK += $$OUT_PWD/build/tst_qbignum512 && echo "Build and test completed successfully."
+}

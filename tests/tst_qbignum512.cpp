@@ -34,6 +34,7 @@ private slots:
     void testInverseMod();
     void testDivisionWithGMP();
     void testDivisionSpeedWithGMP();
+    void testGCD();
 };
 
 void TestQBigNum512::testLeftShift()
@@ -1009,6 +1010,92 @@ void TestQBigNum512::testInverseMod()
 
     QCOMPARE(QBigNum512("4").inverseMod(13), 10);
     QCOMPARE(QBigNum512("4").inverseMod(-13), -3);
+}
+
+void TestQBigNum512::testGCD()
+{
+    QCOMPARE(QBigNum512::gcd(23422, 234234), 14);
+    QCOMPARE(QBigNum512::gcd(23422, -234234), 14);
+    QCOMPARE(QBigNum512::gcd(-23422, 234234), 14);
+    QCOMPARE(QBigNum512::gcd(-23422, -234234), 14);
+    QCOMPARE(QBigNum512::gcd_slow(23422, 234234), 14);
+    QCOMPARE(QBigNum512::gcd_slow(23422, -234234), 14);
+    QCOMPARE(QBigNum512::gcd_slow(-23422, 234234), 14);
+    QCOMPARE(QBigNum512::gcd_slow(-23422, -234234), 14);
+
+    QCOMPARE(QBigNum512::gcd(23423, 234234), 1);
+    QCOMPARE(QBigNum512::gcd("-2342452345728345782364578236452",
+                             "23423523745982374695872364534252333224"), 4);
+
+    // Number of iterations for the test
+    constexpr int iterations = 30000;
+    constexpr uint32_t seed = 123456;
+    QRandomGenerator generator(seed);
+
+    QElapsedTimer timer;
+    timer.start();
+    for (int k = 0; k < iterations; k++)
+    {
+        uint16_t n_nbits = QRandomGenerator::global()->generate();
+        while (n_nbits <= 0 || n_nbits >= 512)
+        {
+            n_nbits = QRandomGenerator::global()->generate();
+        }
+        uint16_t d_nbits = QRandomGenerator::global()->generate();
+        while (d_nbits <= 0 || d_nbits >= 512)
+        {
+            d_nbits = QRandomGenerator::global()->generate();
+        }
+        QBigNum512 a = QBigNum512::randomize(n_nbits, QRandomGenerator::global()->generate() & 1);
+        QBigNum512 b = QBigNum512::randomize(d_nbits, QRandomGenerator::global()->generate() & 1);
+        QCOMPARE(QBigNum512::gcd(a, b), QBigNum512::gcd_slow(a, b));
+    }
+
+    generator.seed(seed);
+    timer.restart();
+    for (int k = 0; k < iterations; k++)
+    {
+        uint16_t n_nbits = QRandomGenerator::global()->generate();
+        while (n_nbits <= 0 || n_nbits >= 512)
+        {
+            n_nbits = QRandomGenerator::global()->generate();
+        }
+        uint16_t d_nbits = QRandomGenerator::global()->generate();
+        while (d_nbits <= 0 || d_nbits >= 512)
+        {
+            d_nbits = QRandomGenerator::global()->generate();
+        }
+        QBigNum512 a = QBigNum512::randomize(n_nbits, QRandomGenerator::global()->generate() & 1);
+        QBigNum512 b = QBigNum512::randomize(d_nbits, QRandomGenerator::global()->generate() & 1);
+
+        auto result = QBigNum512::gcd_slow(a, b);
+    }
+    generator.seed(seed);
+    qint64 elapsed = timer.elapsed();
+    qDebug() << "gcd_slow" << iterations << "iterations:" << elapsed << "ms";
+
+    timer.restart();
+    for (int k = 0; k < iterations; k++)
+    {
+        uint16_t n_nbits = QRandomGenerator::global()->generate();
+        while (n_nbits <= 0 || n_nbits >= 512)
+        {
+            n_nbits = QRandomGenerator::global()->generate();
+        }
+        uint16_t d_nbits = QRandomGenerator::global()->generate();
+        while (d_nbits <= 0 || d_nbits >= 512)
+        {
+            d_nbits = QRandomGenerator::global()->generate();
+        }
+        QBigNum512 a = QBigNum512::randomize(n_nbits, QRandomGenerator::global()->generate() & 1);
+        QBigNum512 b = QBigNum512::randomize(d_nbits, QRandomGenerator::global()->generate() & 1);
+
+        auto result = QBigNum512::gcd(a, b);
+    }
+    generator.seed(seed);
+    elapsed = timer.elapsed();
+    qDebug() <<  "gcd" << iterations << "iterations:" << elapsed << "ms";
+
 }
 
 QTEST_MAIN(TestQBigNum512)
