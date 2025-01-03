@@ -27,6 +27,53 @@ For the examples cd to the examples folder and type `qmake6` then `make`. This w
 
 In the unit test it also compare speed of division with GMP (another bignum library) and it’s about the same speed. GMP took 3.5 seconds for 10000 big number divisions while QbigNum took 3.7 seconds.
 
+## Unit test ouput on my n100
+
+```
+********* Start testing of TestQBigNum512 *********
+Config: Using QtTest library 6.4.2, Qt 6.4.2 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 13.2.0), ubuntu 24.04
+PASS   : TestQBigNum512::initTestCase()
+PASS   : TestQBigNum512::testDefaultConstructor()
+PASS   : TestQBigNum512::testConstructorWithValue()
+PASS   : TestQBigNum512::testConstructorWithHex()
+PASS   : TestQBigNum512::testAssignment()
+PASS   : TestQBigNum512::testToHex()
+PASS   : TestQBigNum512::testIncrement()
+PASS   : TestQBigNum512::testDecrement()
+PASS   : TestQBigNum512::testCompareAbs()
+PASS   : TestQBigNum512::testAddition()
+PASS   : TestQBigNum512::testAdditionByScalar()
+PASS   : TestQBigNum512::testSubtraction()
+PASS   : TestQBigNum512::testSubtractionByScalar()
+PASS   : TestQBigNum512::testMultiplicationByScalar()
+PASS   : TestQBigNum512::testMultiplication()
+PASS   : TestQBigNum512::testLeftShift()
+PASS   : TestQBigNum512::testRightShift()
+PASS   : TestQBigNum512::testShiftLeft()
+PASS   : TestQBigNum512::testComparisonOperators()
+PASS   : TestQBigNum512::testToDecimal()
+PASS   : TestQBigNum512::testFromDecimal()
+PASS   : TestQBigNum512::testDevision()
+PASS   : TestQBigNum512::testModulo()
+PASS   : TestQBigNum512::testPowMod()
+PASS   : TestQBigNum512::testInverseMod()
+PASS   : TestQBigNum512::testDivisionWithGMP()
+QDEBUG : TestQBigNum512::testDivisionSpeedWithGMP() Loading time for 10000 iterations: 23 ms
+QDEBUG : TestQBigNum512::testDivisionSpeedWithGMP() GMP division time for 10000 iterations: 2693 ms
+QDEBUG : TestQBigNum512::testDivisionSpeedWithGMP() BigNum division time for 10000 iterations: 2975 ms
+PASS   : TestQBigNum512::testDivisionSpeedWithGMP()
+QDEBUG : TestQBigNum512::testGCD() gcd_slow 30000 iterations: 2495 ms
+QDEBUG : TestQBigNum512::testGCD() gcd 30000 iterations: 1134 ms
+PASS   : TestQBigNum512::testGCD()
+QDEBUG : TestQBigNum512::testMillerRabin() found 100 random primes of length upto 511 bits in 6941 ms
+PASS   : TestQBigNum512::testMillerRabin()
+QDEBUG : TestQBigNum512::testTonelli() found 20 random quadratic residuals for 20 random primes in 3786 ms
+PASS   : TestQBigNum512::testTonelli()
+PASS   : TestQBigNum512::cleanupTestCase()
+Totals: 31 passed, 0 failed, 0 skipped, 0 blacklisted, 24068ms
+********* Finished testing of TestQBigNum512 *********
+```
+
 ## How division works
 
 Initially, I asked chat GPT. It’s solution was simply going bit by bit through the numerator (dividend). So for a 256-bit number, it would have to do 256 iterations before calculating the result. Chat GPT is pretty bad with C++ code, so I asked it to do it in Python.

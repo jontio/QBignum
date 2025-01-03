@@ -35,6 +35,8 @@ private slots:
     void testDivisionWithGMP();
     void testDivisionSpeedWithGMP();
     void testGCD();
+    void testMillerRabin();
+    void testTonelli();
 };
 
 void TestQBigNum512::testLeftShift()
@@ -1095,7 +1097,74 @@ void TestQBigNum512::testGCD()
     generator.seed(seed);
     elapsed = timer.elapsed();
     qDebug() <<  "gcd" << iterations << "iterations:" << elapsed << "ms";
+}
 
+void TestQBigNum512::testMillerRabin()
+{
+    // Number of iterations for the test
+    constexpr int iterations = 100;
+    constexpr uint32_t seed = 123456;
+    QRandomGenerator generator(seed);
+    QElapsedTimer timer;
+    timer.start();
+    int maxNbits = 0;
+    for (int k = 0; k < iterations; k++)
+    {
+        QBigNum512 a, p;
+        do
+        {
+            uint16_t d_nbits = QRandomGenerator::global()->generate();
+            while (d_nbits <= 0 || d_nbits >= 512)
+            {
+                d_nbits = QRandomGenerator::global()->generate();
+            }
+            p = QBigNum512::randomize(d_nbits, false);
+            if (p.bitLength() > maxNbits)
+            {
+                maxNbits = p.bitLength();
+            }
+        } while (!QBigNum512::millerRabin(p));
+    }
+    qDebug() << "found" << iterations << "random primes of length upto" << maxNbits << "bits in" << timer.elapsed() << "ms";
+}
+
+void TestQBigNum512::testTonelli()
+{
+    // Number of iterations for the test
+    constexpr int iterations = 20;
+    constexpr uint32_t seed = 123456;
+    QRandomGenerator generator(seed);
+    QElapsedTimer timer;
+    timer.start();
+    for (int k = 0; k < iterations; k++)
+    {
+        QBigNum512 a, p;
+        do
+        {
+            uint16_t n_nbits = QRandomGenerator::global()->generate();
+            while (n_nbits <= 1 || n_nbits >= 512)
+            {
+                n_nbits = QRandomGenerator::global()->generate();
+            }
+            uint16_t d_nbits = QRandomGenerator::global()->generate();
+            while (d_nbits <= 1 || d_nbits >= 512)
+            {
+                d_nbits = QRandomGenerator::global()->generate();
+            }
+            a = QBigNum512::randomize(n_nbits, false);
+            p = QBigNum512::randomize(d_nbits, false);
+
+        } while (p == 2 ||
+                 p % 2 == 0 ||
+                 QBigNum512::gcd(a, p) != 1 ||
+                 QBigNum512::legendre(a, p) != 1 ||
+                 !QBigNum512::millerRabin(p));
+
+        /* p will most likly be an odd prime so we can use tonelli */
+        auto result = QBigNum512::tonelli(a, p);
+        QCOMPARE(QBigNum512::mulMod(result, result, p), a % p);
+    }
+    qDebug() << "found" << iterations << "random quadratic residuals for" << iterations << "random primes in" << timer.elapsed() << "ms";
 }
 
 QTEST_MAIN(TestQBigNum512)

@@ -1,10 +1,11 @@
 #include "qbignum.hpp"
 
+DEFINE_USING_NAMESPACE_QBIGNUM(512);
 #define PRINT qDebug().noquote()
 
 int main()
 {
-    QBigNum512 a, b, sum, diff;
+    BigNum a, b, sum, diff;
     PRINT << "\nQBigNum Example Project\n";
 
     /* Add two decimal numbers */
@@ -34,25 +35,28 @@ int main()
     std::tie(q, r) = b / 16;
     PRINT << "Division2:" << b << "/" << 16 << "==" << q << "r" << r;
 
+    /* Just q for divistion */
+    PRINT << "Division3: floor(563456 / 5675) ==" << div("563456", "5675");
+
     /* Exponentials, can be -ve exp too that finds multiplicitave inverse if it exists */
-    QBigNum512 base, exp, mod;
+    BigNum base, exp, mod;
     base = 3;
     exp = -7;
     mod = 13;
-    QBigNum512 result = base.powMod(exp, mod);
+    BigNum result = powMod(base, exp, mod);
     PRINT << "Exponential:" << base << "**" << exp << "%" << mod << "==" << result;
 
     /* Very big exponential */
     a = "0x3487256897436529873956827367839582364987234957826348756293874562938475";
     b = "0x2165154112a132a1a32a1320120b2a3156b46b4b894984bf84afb84984f484abf8f4b9a84b84d5d4b6db4a654";
     mod = 7566487;
-    PRINT << "Exponential2:" << "really big number mod 23452345 ==" << a.powMod(b, mod);
+    PRINT << "Exponential2:" << "really big number mod 23452345 ==" << powMod(a, b, mod);
 
     /* Mod function % */
     base = 3014054041;
     exp = -7210215437;
     mod = 13121;
-    result = (base.powMod(exp, mod) * base.powMod(-exp, mod)) % mod;
+    result = (powMod(base, exp, mod) * powMod(base, -exp, mod)) % mod;
     PRINT << "Mod:" << "((" << base << "**" << exp << "%" << mod << ") * (" <<base << "**" << -exp << "%" << mod <<")) %" << mod << "==" << result;
 
     /* Printng as a hex number */
@@ -70,14 +74,122 @@ int main()
     PRINT << "Increment:" << "456++ ==" << a;
 
     /* RShift */
-    PRINT << "RShift:" << "123 << 1 ==" << (QBigNum512(123) << 1);
+    PRINT << "RShift:" << "123 << 1 ==" << (BigNum(123) << 1);
 
     /* LShift */
-    PRINT << "LShift:" << "456 >> 1 ==" << (QBigNum512(456) >> 1);
+    PRINT << "LShift:" << "456 >> 1 ==" << (BigNum(456) >> 1);
 
-    PRINT << "gcd:" << "gcd(1465041960, 423234344) ==" << QBigNum512::gcd(1465041960, 423234344);
+    /* gcd */
+    PRINT << "gcd:" << "gcd(1465041960, 423234344) ==" << gcd(1465041960, 423234344);
 
-    /* etc. */
+    /* abs */
+    PRINT << "abs:" << "abs(-876978698769876457862349857629305) ==" << abs("-876978698769876457862349857629305");
+
+    /* legendre1 */
+    a = "562756987249856793486";
+    BigNum p("67586567573");
+    QBigNum<1024> h;
+    h=p;
+
+    result = legendre(a, p);
+    if (result == p - 1)
+    {
+        PRINT << "legendre1:" << "legendre(" << a << "," << p <<") ==" << result << " (quadratic residule doesn't exist)";
+    }
+    else if (result == 1)
+    {
+        PRINT << "legendre1:" << "legendre(" << a << "," << p <<") ==" << result << " (quadratic residule exists)";
+    }
+    else if (result != 0)
+    {
+        PRINT << "legendre1:" << "legendre(" << a << "," << p <<") ==" << result << " (67586567573 is not a prime)";
+    }
+    else
+    {
+        PRINT << "legendre1:" << "legendre(" << a << "," << p <<") ==" << result;
+    }
+
+    /* legendre2 */
+    p = 67586567603;
+    result = legendre(a, p);
+    if (result == -1 % p)
+    {
+        PRINT << "legendre2:" << "legendre(" << a << "," << p <<") ==" << result << " (quadratic residule doesn't exist)";
+    }
+    else if (result == 1)
+    {
+        PRINT << "legendre2:" << "legendre(" << a << "," << p <<") ==" << result << " (quadratic residule exists)";
+    }
+    else if (result != 0)
+    {
+        PRINT << "legendre2:" << "legendre(" << a << "," << p <<") ==" << result << " (67586567573 is not a prime)";
+    }
+    else
+    {
+        PRINT << "legendre2:" << "legendre(" << a << "," << p <<") ==" << result;
+    }
+
+    /* legendre3 */
+    a = 1000000009;
+    result = legendre(a, p);
+    if (result == -1 % p)
+    {
+        PRINT << "legendre3:" << "legendre(" << a << "," << p <<") ==" << result << " (quadratic residule doesn't exist)";
+    }
+    else if (result == 1)
+    {
+        PRINT << "legendre3:" << "legendre(" << a << "," << p <<") ==" << result << " (quadratic residule exists)";
+    }
+    else if (result != 0)
+    {
+        PRINT << "legendre3:" << "legendre(" << a << "," << p <<") ==" << result << " (67586567573 is not a prime)";
+    }
+    else
+    {
+        PRINT << "legendre2:" << "legendre(" << a << "," << p <<") ==" << result;
+    }
+
+    /* legendre4 */
+    a = 2 * p;
+    result = legendre(a, p);
+    PRINT << "legendre4:" << "legendre(" << a << "," << p <<") ==" << result;
+
+    /* tonelli1 */
+    a = 1000000009;
+    p = 67586567603;
+    result = tonelli(a, p);
+    PRINT << "tonelli1:" << "tonelli(" << a << "," << p <<") ==" << result << " i.e. (" << result << "*" << result << ") %" << p << "==" << (result * result) % p;
+
+    /* tonelli2 */
+    a = 3456;
+    p = 1000000009;
+    result = tonelli(a, p);
+    PRINT << "tonelli2:" << "tonelli(" << a << "," << p <<") ==" << result << " i.e. (" << result << "*" << result << ") %" << p << "==" << (result * result) % p;
+
+    /* Look for a prime */
+    p = "5468726578264911111111111111158248756245456245624222222222222225625625634534534525624567240";
+    bool p_is_prime = false;
+    for(uint k = 0; !BigNum::millerRabin(p) && k < 10000; k++, p++)
+    {
+        //
+    }
+    if(BigNum::millerRabin(p))
+    {
+        p_is_prime = true;
+        PRINT << "prime1:" << p << "is probably prime";
+    }
+    else
+    {
+        PRINT << "prime1: failed to find a prime";
+    }
+
+    /* Find square root (quadratic residual) given a prime mod number */
+    if (p_is_prime)
+    {
+        a = "6666666666666666666666666666666666666666666666";
+        result = tonelli(a, p);
+        PRINT << "      : (" << result << "*" << result << ") %" << p << "==" << mulMod(result, result, p);
+    }
 
     PRINT << "\n";
 

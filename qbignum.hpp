@@ -13,13 +13,36 @@
 #endif
 #endif
 
-#define NUM_WORDS(bits) ((bits + 63) / 64)
+#define NUM_WORDS(bits) (((bits) + 63) / 64)
 
 template <size_t Bits>
 class QBigNum
 {
 private:
     QList<uint64_t> data;
+
+    template <size_t ABits, size_t BBits>
+    static void copy(const QBigNum<ABits>& from, QBigNum<BBits>& to)
+    {
+        size_t minWords = qMin(NUM_WORDS(ABits), NUM_WORDS(BBits));
+        for (size_t i = 0; i < minWords; ++i)
+        {
+            to[i] = from[i];
+        }
+        if (from.isNegative())
+        {
+            for (size_t i = minWords; i < NUM_WORDS(BBits); ++i)
+            {
+                to[i] = ~0ULL;
+            }
+        }
+
+        if (to.isNegative() != from.isNegative())
+        {
+            throw std::overflow_error("Copy overflow");
+        }
+    }
+
 protected:
 public:
     static constexpr int NUM_BITS = Bits;
@@ -373,46 +396,315 @@ public:
         return (*this / divisor);
     }
 
+    QBigNum div(const QBigNum& divisor) const
+    {
+        auto [quotient, remainder] = *this / divisor;
+        return quotient;
+    }
+
+    QBigNum div(int64_t divisor) const
+    {
+        return this->div(QBigNum(divisor));
+    }
+
+    static QBigNum div(QBigNum dividend, QBigNum divisor)
+    {
+        auto [quotient, remainder] = dividend / divisor;
+        return quotient;
+    }
+
+    static QBigNum div(const QString& dividend, const QString& divisor)
+    {
+        auto [quotient, remainder] = QBigNum(dividend) / QBigNum(divisor);
+        return quotient;
+    }
+
     QBigNum& operator|=(uint64_t scalar)
     {
         data[0] |= scalar;
         return *this;
     }
 
-    QBigNum abs() const
+    QBigNum& operator&=(uint64_t scalar)
     {
-        if (!isNegative())
-        {
-            return *this; // Already positive
-        }
-
-        // Convert two's complement to its absolute value
-        return -*this;
+        data[0] &= scalar;
+        return *this;
     }
 
+    static QBigNum abs(const QBigNum& num)
+    {
+        QBigNum result = num;
+        if (result.isNegative())
+        {
+            return -result;
+        }
+        return result;
+    }
+
+    static QBigNum abs(const QString& num)
+    {
+        return QBigNum::abs(QBigNum(num));
+    }
+
+    static QBigNum legendre(const QBigNum& a, const QBigNum& p)
+    {
+        return QBigNum::powMod(a, (p - 1).div(2), p);
+    }
+
+    static QBigNum legendre(const QString& a, const QString& p)
+    {
+        return QBigNum::legendre(QBigNum(a), QBigNum(p));
+    }
+
+    static QBigNum legendre(int64_t a, int64_t p)
+    {
+        return QBigNum::legendre(QBigNum(a), QBigNum(p));
+    }
+
+    /* prime number test */
+    static bool millerRabin(const QBigNum& n, int k = 44)
+    {
+        if (n <= 1)
+        {
+            return false;
+        }
+        if (n == 2 || n == 3)
+        {
+            return true; // n is prime
+        }
+        if (n % 2 == 0)
+        {
+            return false; // Even numbers > 2 are not prime
+        }
+
+        // Small prime divisors check
+        std::vector<int> smallPrimes = {5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97};
+        for (int prime : smallPrimes)
+        {
+            QBigNum primeBN = QBigNum(prime);
+            if (n % primeBN == 0 && n != primeBN)
+            {
+                return false;
+            }
+        }
+
+        // Write n - 1 as d * 2^r
+        QBigNum d = n - 1;
+        int r = 0;
+        while (d % 2 == 0)
+        {
+            d /= 2;
+            r++;
+        }
+
+        // Perform k iterations of the test
+        for (int i = 0; i < k; ++i)
+        {
+            // Generate random a in range [2, n - 2]
+            QBigNum a = QBigNum::randomInRange(2, n - 2);
+
+            // Compute x = a^d % n
+            QBigNum x = QBigNum::powMod(a, d, n);
+
+            if (x == 1 || x == n - 1)
+            {
+                continue;
+            }
+
+            bool isComposite = true;
+            for (int j = 0; j < r - 1; ++j)
+            {
+                x = QBigNum::mulMod(x, x, n);
+                if (x == n - 1)
+                {
+                    isComposite = false;
+                    break;
+                }
+            }
+
+            if (isComposite)
+            {
+                return false;
+            }
+        }
+
+        return true; // n is probably prime
+    }
+
+    static bool millerRabin(const QString& n, int k = 44)
+    {
+        return QBigNum::millerRabin(QBigNum(n), k);
+    }
+
+    static bool millerRabin(int64_t n, int k = 44)
+    {
+        return QBigNum::millerRabin(QBigNum(n), k);
+    }
+
+    /* generalization of legendre but for compisitte numbers so no use for tonelli */
+    static int jacobi(const QBigNum& a, const QBigNum& n)
+    {
+        QBigNum aCopy = a % n;
+        QBigNum nCopy = n;
+
+        // Handle base cases
+        if (aCopy == 0)
+        {
+            return 0; // Jacobi symbol (0/n) = 0
+        }
+        if (aCopy == 1)
+        {
+            return 1; // Jacobi symbol (1/n) = 1
+        }
+
+        int result = 1;
+
+        // When a is negative, make it positive and flip the sign of result
+        if (aCopy < 0)
+        {
+            aCopy = -aCopy;
+            if (nCopy % 4 == 3)
+            {
+                result = -result; // Flip sign if n mod 4 is 3
+            }
+        }
+
+        // Apply the law of quadratic reciprocity
+        while (aCopy != 0)
+        {
+            while (aCopy % 2 == 0)
+            {
+                aCopy = aCopy.div(2);
+                if (nCopy % 8 == 3 || nCopy % 8 == 5)
+                {
+                    result = -result; // Flip sign when n mod 8 is 3 or 5
+                }
+            }
+
+            // Swap a and n if n > a
+            if (n > a)
+            {
+                QBigNum tmp = aCopy;
+                aCopy = nCopy;
+                nCopy = tmp;
+            }
+
+            if (aCopy % 4 == 3 && nCopy % 4 == 3)
+            {
+                result = -result; // Apply quadratic reciprocity
+            }
+
+            aCopy = aCopy % nCopy;
+        }
+
+        // If a is 1, return 1, otherwise return the result
+        return (nCopy == 1) ? result : 0;
+    }
+
+    /* p needs to be prime for this algo wil find quadratic residuals */
+    static QBigNum tonelli(const QBigNum& n, const QBigNum& p)
+    {
+        if (n == 1 || n == 0)
+        {
+            return n;
+        }
+
+        if (legendre(n, p) != 1)
+        {
+            throw std::invalid_argument("Not a square (mod p)");
+        }
+
+        static QBigNum p_last;
+        static bool p_last_is_prime = false;
+
+        if (p != p_last)
+        {
+            p_last = p;
+            p_last_is_prime = QBigNum::millerRabin(p_last);
+        }
+
+        if (!p_last_is_prime)
+        {
+            throw std::invalid_argument("p isn't prime");
+        }
+
+        QBigNum q = p - 1;
+        uint s = 0;
+
+        // Factorize p - 1 as q * 2^s
+        while ((q % 2) == 0)
+        {
+            q /= 2;
+            s++;
+        }
+
+        if (s == 1)
+        {
+            return QBigNum::powMod(n, (p + 1).div(4), p);
+        }
+
+        // Find a non-residue z
+        QBigNum z = 2;
+        while (legendre(z, p) != p - 1)
+        {
+            z++;
+        }
+
+        QBigNum c = QBigNum::powMod(z, q, p);
+        QBigNum r = QBigNum::powMod(n, (q + 1).div(2), p);
+        QBigNum t = QBigNum::powMod(n, q, p);
+        uint m = s;
+
+        while ((t - 1) % p != 0)
+        {
+            QBigNum t2 = t;
+            uint i = 0;
+
+            for (i = 1; i < m; ++i)
+            {
+                t2 = QBigNum::mulMod(t2, t2, p);
+                if ((t2 - 1) % p == 0)
+                {
+                    break;
+                }
+            }
+
+            QBigNum b = QBigNum::powMod(c, QBigNum(1) << (m - i - 1), p);
+            r = QBigNum::mulMod(r, b, p);
+            c = QBigNum::mulMod(b, b, p);
+            t = QBigNum::mulMod(t, c, p);
+            m = i;
+        }
+
+        return r;
+    }
+
+    static QBigNum tonelli(const QString& n, const QString& p)
+    {
+        return QBigNum::tonelli(QBigNum(n), QBigNum(p));
+    }
+
+    static QBigNum tonelli(int64_t n, int64_t p)
+    {
+        return QBigNum::tonelli(QBigNum(n), QBigNum(p));
+    }
+
+    /* Doesn't check for overflow */
     QBigNum& operator*=(const QBigNum& other)
     {
-        QList<uint64_t> resultData(2 * NUM_WORDS, 0); // 1024-bit intermediate result
-
+        QBigNum result;
         // Multiply each word of *this by each word of other
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
             __uint128_t carry = 0;
-            for (size_t j = 0; j < NUM_WORDS; ++j)
+            for (size_t j = 0; i + j < NUM_WORDS; ++j)
             {
-                __uint128_t product = (__uint128_t)this->data[i] * other.data[j] + resultData[i + j] + carry;
-                resultData[i + j] = static_cast<uint64_t>(product);  // Store lower 64 bits
+                __uint128_t product = (__uint128_t)this->data[i] * other.data[j] + result.data[i + j] + carry;
+                result.data[i + j] = static_cast<uint64_t>(product);  // Store lower 64 bits
                 carry = product >> 64;  // Carry for next higher bits
             }
-            resultData[i + NUM_WORDS] = static_cast<uint64_t>(carry);  // Store the last carry
         }
-
-        // Truncate to 512 bits and assign back to *this
-        for (size_t i = 0; i < NUM_WORDS; ++i)
-        {
-            this->data[i] = resultData[i];  // Assign the lower 512 bits of result
-        }
-
+        *this = result;
         return *this;  // Return the modified object
     }
 
@@ -480,6 +772,89 @@ public:
         return *this;
     }
 
+    static QBigNum mulMod(QBigNum a, QBigNum b, QBigNum m)
+    {
+        QBigNum<(2*Bits)> resultData; // 1024-bit intermediate result
+        QBigNum<(2*Bits)> mbig;
+        QBigNum res;
+
+        bool negFlag = false;
+        if (a.isNegative())
+        {
+            a = -a;
+            negFlag = !negFlag;
+        }
+        if (b.isNegative())
+        {
+            b = -b;
+            negFlag = !negFlag;
+        }
+
+        // Multiply each word of *this by each word of other
+        for (size_t i = 0; i < NUM_WORDS; ++i)
+        {
+            __uint128_t carry = 0;
+            for (size_t j = 0; j < NUM_WORDS; ++j)
+            {
+                __uint128_t product = (__uint128_t)a[i] * b[j] + resultData[i + j] + carry;
+                resultData[i + j] = static_cast<uint64_t>(product);  // Store lower 64 bits
+                carry = product >> 64;  // Carry for next higher bits
+            }
+            resultData[i + NUM_WORDS] = static_cast<uint64_t>(carry);  // Store the last carry
+        }
+
+        if (negFlag)
+        {
+            resultData = -resultData;
+        }
+
+        uint bitCount = qMax(resultData.bitLength(), m.bitLength());
+        if (bitCount >= Bits)
+        {
+            /* Do the mod operation in the bigger space */
+            copy(m, mbig);
+            resultData %= mbig;
+            copy(resultData, res);
+        }
+        else
+        {
+            copy(resultData, res);
+            res %= m;
+        }
+
+        return res;
+    }
+
+    static QBigNum mulMod(const QString& a, const QString& b, const QString& m)
+    {
+        return QBigNum::mulMod(QBigNum(a), QBigNum(b), QBigNum(m));
+    }
+
+    static QBigNum mulMod(int64_t a, int64_t b, int64_t m)
+    {
+        return QBigNum::mulMod(QBigNum(a), QBigNum(b), QBigNum(m));
+    }
+
+    // Non-const version: allows modification of data
+    uint64_t& operator[](size_t index)
+    {
+        if (index >= NUM_WORDS)
+        {
+            throw std::out_of_range("Index out of range");
+        }
+        return data[index];
+    }
+
+    // Const version: read-only access
+    const uint64_t& operator[](size_t index) const
+    {
+        if (index >= NUM_WORDS)
+        {
+            throw std::out_of_range("Index out of range");
+        }
+        return data[index];
+    }
+
     static QBigNum powMod(const QBigNum& base, const QBigNum& exp, const QBigNum& mod)
     {
         QBigNum result = base.powMod(exp, mod);
@@ -520,10 +895,10 @@ public:
             // If exponent is odd, multiply base with result
             if (e.data[0] & 1)
             {
-                result = (result * b) % mod;
+                result = mulMod(result, b, mod);
             }
             e >>= 1;       // Divide exponent by 2
-            b = (b * b) % mod; // Square the base and reduce modulo mod
+            b = mulMod(b, b, mod);// Square the base and reduce modulo mod
         }
 
         return result;
@@ -566,7 +941,7 @@ public:
 
             // Update `x0` and `x1`
             t = x0;
-            x0 = x1 - q * x0;
+            x0 = x1 - q * x0; // TODO: can this overflow ?
             x1 = t;
         }
 
@@ -596,8 +971,8 @@ public:
             return a;
         }
 
-        a = a.abs();
-        b = b.abs();
+        a = QBigNum::abs(a);
+        b = QBigNum::abs(b);
 
         uint shift = 0;
 
@@ -655,8 +1030,8 @@ public:
         {
             return a;
         }
-        a = a.abs();
-        b = b.abs();
+        a = QBigNum::abs(a);
+        b = QBigNum::abs(b);
         while (b != 0 && a != 0)
         {
             if (b < a)
@@ -947,6 +1322,23 @@ public:
         return toDecimalString();
     }
 
+    int64_t toInt64() const
+    {
+        return (int64_t)data[0];
+    }
+
+    template <size_t TargetBits>
+    QBigNum<TargetBits> convertTo() const
+    {
+        QBigNum<TargetBits> result;
+        size_t minWords = qMin(NUM_WORDS(Bits), NUM_WORDS(TargetBits));
+        for (size_t i = 0; i < minWords; ++i)
+        {
+            result[i] = this->data[i];
+        }
+        return result;
+    }
+
     /* Misc */
 
     // Static function to get the maximum value QBigNum can represent
@@ -1020,6 +1412,16 @@ public:
 
     int bitLength() const
     {
+
+        // Handle negative numbers by considering their two's complement representation
+        if (isNegative())
+        {
+            // For negative numbers, calculate the bit length of the positive equivalent (ignoring the sign bit)
+            QBigNum<Bits> positiveNum = *this;
+            positiveNum = abs(positiveNum); // Get the absolute value
+            return positiveNum.bitLength();
+        }
+
         for (int i = NUM_WORDS - 1; i >= 0; --i)
         {
             if (data[i] != 0)
@@ -1033,11 +1435,6 @@ public:
     bool isNegative() const
     {
         return (data[NUM_WORDS - 1] >> 63);
-    }
-
-    uint64_t get_lsw() const
-    {
-        return data.front();
     }
 
     QString toWordString() const
@@ -1096,14 +1493,14 @@ public:
             return "0";
         }
 
-        temp = temp.abs();
+        temp = QBigNum::abs(temp);
 
         // Convert the absolute value to a decimal string
         while (temp > 0)
         {
             auto [quotient, remainder] = temp / 10;
             temp = quotient;
-            result.prepend(QString::number(remainder.get_lsw()));
+            result.prepend(QString::number(remainder[0]));
         }
 
         // Add the negative sign if necessary
@@ -1226,6 +1623,37 @@ public:
         return result;
     }
 
+    static QBigNum randomInRange(const QBigNum& min, const QBigNum& max)
+    {
+        if (min > max)
+        {
+            throw std::invalid_argument("min must be <= max");
+        }
+
+        QBigNum range = max - min + 1; // Inclusive range
+
+        QBigNum result = 0;
+        QBigNum multiplier = 1;
+
+        while (range > 0)
+        {
+            // Generate a random 64-bit integer using QRandomGenerator
+            uint64_t randomPart = QRandomGenerator::global()->generate64();
+
+            // Ensure randomPart fits within the current range
+            QBigNum part = QBigNum(randomPart) % range;
+
+            // Accumulate the random result
+            result += part * multiplier;
+
+            // Adjust the range for the next iteration
+            range >>= 64;
+            multiplier <<= 64;
+        }
+
+        return min + result % (max - min + 1);
+    }
+
     // Randomize QBigNum with specified number of bits
     static QBigNum randomize(int numBits, bool negative)
     {
@@ -1283,4 +1711,47 @@ public:
 
 };
 
+#define DEFINE_NAMESPACE_QBIGNUM(BITS)                              \
+namespace QBigNumUtils##BITS                                         \
+{                                                                    \
+        using BigNum = QBigNum<BITS>;                                    \
+                                                                     \
+        BigNum abs(const BigNum& num) { return BigNum::abs(num); } \
+        BigNum abs(const QString& num) { return BigNum::abs(num); } \
+                                                                     \
+        BigNum legendre(const BigNum& a, const BigNum& p) { return BigNum::legendre(a, p); } \
+        BigNum legendre(const QString& a, const QString& p) { return BigNum::legendre(a, p); } \
+        BigNum legendre(int64_t a, int64_t p) { return BigNum::legendre(a, p); } \
+                                                                     \
+        BigNum mulMod(const BigNum& a, const BigNum& b, const BigNum& mod) { return BigNum::mulMod(a, b, mod); }           \
+        BigNum mulMod(const QString& a, const QString& b, const QString& mod) { return BigNum::mulMod(a, b, mod); }           \
+        BigNum mulMod(int64_t a, int64_t b, int64_t mod) { return BigNum::mulMod(a, b, mod); }           \
+                                                                    \
+        BigNum powMod(const BigNum& base, const BigNum& exp, const BigNum& mod) { return BigNum::powMod(base, exp, mod); }           \
+        BigNum powMod(const QString& base, const QString& exp, const QString& mod) { return BigNum::powMod(base, exp, mod); }           \
+        BigNum powMod(int64_t base, int64_t exp, int64_t mod) { return BigNum::powMod(base, exp, mod); }           \
+                                                                    \
+        BigNum gcd(const BigNum& a, const BigNum& b) { return BigNum::gcd(a, b); } \
+        BigNum gcd(const QString& a, const QString& b) { return BigNum::gcd(a, b); } \
+        BigNum gcd(int64_t a, int64_t b) { return BigNum::gcd(a, b); } \
+                                                                    \
+        BigNum div(BigNum dividend, BigNum divisor)  { return BigNum::div(dividend, divisor); } \
+        BigNum div(const QString& dividend, const QString& divisor)  { return BigNum::div(dividend, divisor); } \
+                                                                    \
+        BigNum tonelli(const BigNum& n, const BigNum& p) { return BigNum::tonelli(n, p); }\
+        BigNum tonelli(const QString& n, const QString& p) { return BigNum::tonelli(n, p); }\
+        BigNum tonelli(int64_t n, int64_t p) { return BigNum::tonelli(n, p); }\
+                                                                    \
+        bool millerRabin(const BigNum& n, int k = 44) { return BigNum::millerRabin(n, k); } \
+        bool millerRabin(const QString& n, int k = 44) { return BigNum::millerRabin(n, k); } \
+        bool millerRabin(int64_t n, int k = 44) { return BigNum::millerRabin(n, k); } \
+} \
+typedef QBigNum<BITS> QBigNum##BITS
+
+#define DEFINE_USING_NAMESPACE_QBIGNUM(BITS) \
+    DEFINE_NAMESPACE_QBIGNUM(BITS); \
+    using namespace QBigNumUtils##BITS
+
+typedef QBigNum<256> QBigNum256;
 typedef QBigNum<512> QBigNum512;
+typedef QBigNum<1024> QBigNum1024;
