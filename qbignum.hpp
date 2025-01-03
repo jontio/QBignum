@@ -1709,6 +1709,69 @@ public:
         return hexString;
     }
 
+    QBigNum reverseByteOrder(size_t reflectionBytes) const
+    {
+        QBigNum reversed;
+
+        constexpr size_t NUM_BYTES = Bits / 8; // Total bytes in the number
+        constexpr size_t NUM_WORDS = NUM_BYTES / sizeof(uint64_t); // Number of 64-bit words
+        const size_t reflectionWords = reflectionBytes / sizeof(uint64_t); // Words to reflect around
+
+        // Sanity check for reflectionBytes
+        if (reflectionBytes > NUM_BYTES)
+        {
+            throw std::invalid_argument("Reflection point exceeds number size");
+        }
+
+        for (size_t i = 0; i < reflectionWords; ++i)
+        {
+            // Reverse byte order of each word and reflect around the specified point
+            uint64_t word = data[i];
+            word = ((word & 0x00000000000000FFULL) << 56) |
+                   ((word & 0x000000000000FF00ULL) << 40) |
+                   ((word & 0x0000000000FF0000ULL) << 24) |
+                   ((word & 0x00000000FF000000ULL) << 8)  |
+                   ((word & 0x000000FF00000000ULL) >> 8)  |
+                   ((word & 0x0000FF0000000000ULL) >> 24) |
+                   ((word & 0x00FF000000000000ULL) >> 40) |
+                   ((word & 0xFF00000000000000ULL) >> 56);
+
+            // Reflect the word around the specified byte
+            size_t targetWord = (reflectionWords - 1) - i;
+            reversed.data[targetWord] = word;
+        }
+
+        // Copy any remaining bytes (not part of the reflection area)
+        for (size_t i = reflectionWords; i < NUM_WORDS; ++i)
+        {
+            reversed.data[i] = data[i];
+        }
+
+        return reversed;
+    }
+
+    // Set the bit at the specified index
+    void setBit(size_t index)
+    {
+        // Find the word index and the position of the bit in that word
+        size_t wordIndex = index / 64;
+        size_t bitPosition = index % 64;
+
+        // Set the bit at the correct position
+        data[wordIndex] |= (1ULL << bitPosition);
+    }
+
+    // Clear the bit at the specified index
+    void clearBit(size_t index)
+    {
+        // Find the word index and the position of the bit in that word
+        size_t wordIndex = index / 64;
+        size_t bitPosition = index % 64;
+
+        // Clear the bit at the correct position
+        data[wordIndex] &= ~(1ULL << bitPosition);
+    }
+
 };
 
 #define DEFINE_NAMESPACE_QBIGNUM(BITS)                              \

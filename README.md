@@ -13,6 +13,24 @@ b = “3452345923486982734876239856727836928”
 PRINT << a + b;
 ```
 
+Also added an example for Curve25519 eliptic curve cryptography. It's not immune to timing attacks and slower than it could but that could be changed if you want. It's just an example but to test that you can create public keys given private keys like so...
+
+```C++
+    /* Calculate a public key given a private key for curve 25519 */
+    Curve25519 curve;
+    QString private_key = "0x77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a";
+    QString public_key = curve.generatePulicKey(private_key);
+    PRINT << "Curve25519 private key is" << private_key;
+    PRINT << "Curve25519 public key is" << public_key;
+```
+
+The output is...
+
+```
+Curve25519 private key is 0x77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a
+Curve25519 public key is 0x8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a
+```
+
 See the example folder for how to use. It’s pretty intuitive.
 
 ## Compiling

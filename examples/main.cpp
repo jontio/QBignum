@@ -1,4 +1,5 @@
 #include "qbignum.hpp"
+#include "curve25519.hpp"
 
 DEFINE_USING_NAMESPACE_QBIGNUM(512);
 #define PRINT qDebug().noquote()
@@ -190,6 +191,13 @@ int main()
         result = tonelli(a, p);
         PRINT << "      : (" << result << "*" << result << ") %" << p << "==" << mulMod(result, result, p);
     }
+
+    /* Calculate a public key given a private key for curve 25519 */
+    Curve25519 curve;
+    QString private_key = "0x77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a";
+    QString public_key = curve.generatePulicKey(private_key);
+    PRINT << "Curve25519 private key is" << private_key;
+    PRINT << "Curve25519 public key is" << public_key;
 
     PRINT << "\n";
 

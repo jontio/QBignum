@@ -19,7 +19,9 @@ SOURCES += \
     main.cpp
 
 HEADERS += \
-    ../qbignum.hpp
+    ../qbignum.hpp \
+    curve25519.hpp \
+    montgomerycurve.hpp
 
 INCLUDEPATH += \
     ../
